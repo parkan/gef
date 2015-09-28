@@ -3,6 +3,16 @@ import fs from 'fs-promise';
 import _ from 'lodash';
 require('stackup');
 
+const typeMap = new Map([
+    [ 'Time', 'Date' ],
+    [ 'ID', 'ObjectId' ],
+    [ 'String', 'String' ],
+    [ 'Int', 'Number' ],
+    [ 'Float', 'Number' ],
+    [ 'Boolean', 'Boolean' ]
+]);
+const refTypes = new Set();
+
 fs.readFile('schema.graphql')
         .then(body => parse(body))
         .then(ast => walkAst(ast))
@@ -28,13 +38,12 @@ function collectFields(objectTypeDefinitionAst){
 }
 
 function determineFieldType(typeAst){
-    //console.log(fieldDefinitionAst);
     switch(typeAst.kind){
         case 'NonNullType':
             return { required: true, ...determineFieldType(typeAst.type) };
             break;
         case 'NamedType':
-            return { "type": translateType(typeAst.name.value) };
+            return { ...translateType(typeAst.name.value) };
             break;
         default:
             throw new Error("Unknown type kind");
@@ -42,15 +51,28 @@ function determineFieldType(typeAst){
 }
 
 function translateType(type){
-    return type;
+    const mongooseType = typeMap.get(type);
+
+    if(mongooseType === undefined){
+        if(refTypes.has(type)){
+            return { type: 'ObjectId', ref: type };
+        } else {
+            throw new Error('Unknown type mapping for ' + type);
+        }
+    }
+
+    return { type: mongooseType };
 }
 
 function walkAst(ast){
     // extract scalars and map to custom Mongoose types
-    // const res = extractScalars(ast.definitions);
+    const scalars = extractScalars(ast.definitions);
 
     // extract nodes
     const nodes = extractNodes(ast.definitions);
+
+    // save node names as valid ref target types
+    nodes.map(n => refTypes.add(n.name.value));
 
     // for each node, create a collection
     const collections = nodes.map(n => collectFields(n));
