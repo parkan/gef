@@ -1,0 +1,19 @@
+{
+  "name": "graphql2mongoose",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fs-promise": "^0.3.1",
+    "graphql": "^0.4.4",
+    "lodash": "^3.10.1",
+    "lodash-node": "^3.10.1",
+    "mongoose-gen": "^2.1.0",
+    "stackup": "^1.0.1"
+  }
+}
