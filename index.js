@@ -33,8 +33,9 @@ function extractScalars(definitionsAst){
 }
 
 function collectFields(objectTypeDefinitionAst){
-    return objectTypeDefinitionAst.fields.map(f => ({
+    const fields = objectTypeDefinitionAst.fields.map(f => ({
         [f.name.value] : determineFieldType(f.type) }));
+    return Object.assign({}, ...fields);
 }
 
 function determineFieldType(typeAst){
@@ -45,8 +46,11 @@ function determineFieldType(typeAst){
         case 'NamedType':
             return { ...translateType(typeAst.name.value) };
             break;
+        case 'ListType':
+            return [ determineFieldType(typeAst.type) ];
+            break;
         default:
-            throw new Error("Unknown type kind");
+            throw new Error("Unknown type kind " + typeAst.kind);
     }
 }
 
@@ -75,8 +79,7 @@ function walkAst(ast){
     nodes.map(n => refTypes.add(n.name.value));
 
     // for each node, create a collection
-    const collections = nodes.map(n => collectFields(n));
-    //_.chain(ast.definitions).filter(d => d.interfaces && d.interfaces.length && d.interfaces.map(i => i.name.value).contains('Node')).value();
-    
-    console.log(collections[0]);
+    const collections = nodes.map(n => [n.name.value, collectFields(n)]);
+
+    console.log(JSON.stringify(collections[0][1]));
 }
