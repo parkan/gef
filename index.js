@@ -1,7 +1,8 @@
 import { parse }  from 'graphql/language/parser';
 import fs from 'fs-promise';
 import _ from 'lodash';
-require('stackup');
+import generator from 'mongoose-gen';
+import 'stackup';
 
 const typeMap = new Map([
     [ 'Time', 'Date' ],
@@ -71,6 +72,7 @@ function translateType(type){
 function walkAst(ast){
     // extract scalars and map to custom Mongoose types
     const scalars = extractScalars(ast.definitions);
+    // TODO: check that all scalars have mappings in typeMap
 
     // extract nodes
     const nodes = extractNodes(ast.definitions);
@@ -81,5 +83,7 @@ function walkAst(ast){
     // for each node, create a collection
     const collections = nodes.map(n => [n.name.value, collectFields(n)]);
 
-    console.log(JSON.stringify(collections));
+    const schemas = collections.map(([name, c]) => [ name, generator.convert(c) ]);
+
+    console.log(schemas);
 }
