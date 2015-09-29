@@ -1,6 +1,14 @@
 /* @flow */
 
 import { parse }  from 'graphql/language/parser';
+import type { 
+        Document,
+        FieldDefinition,
+        Node,
+        ObjectTypeDefinition,
+        ScalarTypeDefinition,
+        TypeDefinition
+} from 'graphql/language/ast';
 import fs from 'fs-promise';
 import _ from 'lodash';
 import generator from 'mongoose-gen';
@@ -23,17 +31,18 @@ fs.readFile('schema.graphql')
         .then(ast => walkAst(ast))
         .catch(err => console.log(err.stack));
 
-function isNode(fieldDefinitionAst): boolean {
+// here we use "Node" in the relay sense, not general GraphQL sense
+function isNode(fieldDefinitionAst: ObjectTypeDefinition): boolean {
     return fieldDefinitionAst.interfaces
             && fieldDefinitionAst.interfaces.length
             && _.chain(fieldDefinitionAst.interfaces).map(i => i.name.value).contains('Node').value()
 }
 
-function extractNodes(definitionsAst){
+function extractNodes(definitionsAst): ObjectTypeDefinition {
     return _.filter(definitionsAst, d => isNode(d));
 }
 
-function extractScalars(definitionsAst){
+function extractScalars(definitionsAst): ScalarTypeDefinition {
     return _.filter(definitionsAst, d => d.kind === 'ScalarTypeDefinition');
 }
 
@@ -44,7 +53,7 @@ function collectFields(objectTypeDefinitionAst): { [key: string]: MongooseType }
 }
 
 // this won't typecheck as (Array<MongooseType> | MongooseType) because of recursion
-function determineFieldType(typeAst): any {
+function determineFieldType(typeAst: TypeDefinition): any {
     switch(typeAst.kind){
         case 'NonNullType':
             return { required: true, ...determineFieldType(typeAst.type) };
@@ -71,7 +80,7 @@ function translateType(type: string): MongooseType {
     return { type: mongooseType };
 }
 
-function walkAst(ast){
+function walkAst(ast: Document){
     // extract scalars and map to custom Mongoose types
     const scalars = extractScalars(ast.definitions);
     // TODO: check that all scalars have mappings in typeMap
@@ -84,8 +93,8 @@ function walkAst(ast){
 
     // for each node, create a collection
     const collections = nodes.map(n => [n.name.value, collectFields(n)]);
+    console.log(JSON.stringify(collections));
 
-    const schemas = collections.map(([name, c]) => [ name, generator.convert(c) ]);
-
-    console.log(schemas);
+    // actual mongoose output
+    //const schemas = collections.map(([name, c]) => [ name, generator.convert(c) ]);
 }
