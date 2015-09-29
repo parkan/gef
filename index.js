@@ -1,3 +1,5 @@
+/* @flow */
+
 import { parse }  from 'graphql/language/parser';
 import fs from 'fs-promise';
 import _ from 'lodash';
@@ -14,12 +16,14 @@ const typeMap = new Map([
 ]);
 const refTypes = new Set();
 
+type MongooseType = { type: string, ref?: string }
+
 fs.readFile('schema.graphql')
         .then(body => parse(body))
         .then(ast => walkAst(ast))
         .catch(err => console.log(err.stack));
 
-function isNode(fieldDefinitionAst){
+function isNode(fieldDefinitionAst): boolean {
     return fieldDefinitionAst.interfaces
             && fieldDefinitionAst.interfaces.length
             && _.chain(fieldDefinitionAst.interfaces).map(i => i.name.value).contains('Node').value()
@@ -33,29 +37,27 @@ function extractScalars(definitionsAst){
     return _.filter(definitionsAst, d => d.kind === 'ScalarTypeDefinition');
 }
 
-function collectFields(objectTypeDefinitionAst){
+function collectFields(objectTypeDefinitionAst): { [key: string]: MongooseType } {
     const fields = objectTypeDefinitionAst.fields.map(f => ({
         [f.name.value] : determineFieldType(f.type) }));
     return Object.assign({}, ...fields);
 }
 
-function determineFieldType(typeAst){
+// this won't typecheck as (Array<MongooseType> | MongooseType) because of recursion
+function determineFieldType(typeAst): any {
     switch(typeAst.kind){
         case 'NonNullType':
             return { required: true, ...determineFieldType(typeAst.type) };
-            break;
         case 'NamedType':
-            return { ...translateType(typeAst.name.value) };
-            break;
+            return translateType(typeAst.name.value);
         case 'ListType':
             return [ determineFieldType(typeAst.type) ];
-            break;
         default:
             throw new Error("Unknown type kind " + typeAst.kind);
     }
 }
 
-function translateType(type){
+function translateType(type: string): MongooseType {
     const mongooseType = typeMap.get(type);
 
     if(mongooseType === undefined){
