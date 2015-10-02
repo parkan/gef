@@ -27,7 +27,7 @@ const relayTypeMap = new Map();
 const refTypes = new Set();
 const interfaceTypes = new Set();
 
-type MongooseType = { type: string, ref?: string }
+type MongooseType = { type: string|Array<string>, ref?: string, required?: boolean }
 
 fs.readFile('schema.graphql')
         .then(body => parse(body))
@@ -70,40 +70,46 @@ function collectFields(objectTypeDefinitionAst): { [key: string]: MongooseType }
 }
 
 // this won't typecheck as (Array<MongooseType> | MongooseType) because of recursion
-function determineFieldType(typeAst: TypeDefinition): any {
+function determineFieldType(typeAst: TypeDefinition, isList: boolean = false): MongooseType {
     switch(typeAst.kind){
         case 'NonNullType':
-            return { required: true, ...determineFieldType(typeAst.type) };
+            // below will not type check
+            //return { ...determineFieldType(typeAst.type), required: true };
+            var underlying = determineFieldType(typeAst.type);
+            underlying.required = true;
+            return underlying;
         case 'NamedType':
             var candidateType = typeAst.name.value;
             // replace Connection and Edge types with real underlying type
             if(relayTypeMap.has(candidateType)){
                 candidateType = relayTypeMap.get(candidateType);
             }
-            return translateType(candidateType);
+            return translateType(candidateType, isList);
         case 'ListType':
-            return [ determineFieldType(typeAst.type) ];
+            return determineFieldType(typeAst.type, true);
         default:
             throw new Error("Unknown type kind " + typeAst.kind);
     }
 }
 
-function translateType(type: string): MongooseType {
+function translateType(type: string, isList: boolean = false): MongooseType {
     const mongooseType = typeMap.get(type);
+
+    const wrap = (t) => isList? [t] : t;
 
     if(mongooseType === undefined){
         if(refTypes.has(type)){
             // reference
-            return { type: 'ObjectId', ref: type };
+            return { type: wrap('ObjectId'), ref: type };
         } else if(interfaceTypes.has(type)){
             // polymorphic
-            return { type: 'ObjectId' };
+            return { type: wrap('ObjectId') };
         } else {
             throw new Error('Unknown type mapping for ' + type);
         }
     }
 
-    return { type: mongooseType };
+    return { type: wrap(mongooseType) };
 }
 
 function walkAst(ast: Document){
