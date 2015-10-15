@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bson": "^0.4.12",
+    "bson": "^0.4.17",
     "fs-promise": "^0.3.1",
     "graphql": "^0.4.4",
     "lodash": "^3.10.1",
